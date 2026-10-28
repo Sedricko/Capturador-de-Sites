@@ -1,0 +1,6 @@
+Arquivos do SingleFile 1.32.0 (Gildas Lormeau), copiados sem alterações da extensão oficial:
+- single-file.js: motor de captura (monta o .html único com imagens, CSS e fontes).
+- single-file-hooks-frames.js: "ganchos" que fazem o site carregar o conteúdo adiado (lazy) sem rolar a página.
+- single-file-frames.bundle.js: captura o conteúdo dos iframes.
+Licença: GNU AGPL v3 — código-fonte em https://github.com/gildas-lormeau/SingleFile
+Ao distribuir esta extensão, ela também precisa ser distribuída sob AGPL, com o código aberto.

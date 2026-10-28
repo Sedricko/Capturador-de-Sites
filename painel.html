@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-br">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capturador de Sites</title>
+<link rel="icon" href="icone.png">
+<style>
+	:root {
+		--fundo: #f3f4f8; --cartao: #fff; --texto: #1d2230; --suave: #6b7185; --borda: #e2e4ec;
+		--cor: #4f46e5; --cor2: #7c3aed; --campo: #fff; --aviso: #fff7e0; --aviso-borda: #f0c75e; --log: #f6f7fb;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--fundo: #14161d; --cartao: #1e212b; --texto: #e8eaf2; --suave: #9aa0b4; --borda: #2e3240;
+			--cor: #7c74ff; --cor2: #a78bfa; --campo: #262a36; --aviso: #3a3220; --aviso-borda: #8a6d1f; --log: #181a22;
+		}
+	}
+	* { box-sizing: border-box; }
+	[hidden] { display: none !important; }
+	body { margin: 0; font: 14px/1.5 system-ui, "Segoe UI", sans-serif; background: var(--fundo); color: var(--texto); }
+	header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+	.topo { max-width: 860px; margin: 0 auto; padding: 18px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+	.topo img { width: 40px; height: 40px; }
+	.topo h1 { margin: 0; font-size: 21px; }
+	.topo p { margin: 0; opacity: .85; font-size: 13px; }
+	.topo .marca { flex: 1; min-width: 220px; }
+	main { max-width: 860px; margin: 0 auto; padding: 18px 16px 40px; display: grid; gap: 14px; }
+	section, details { background: var(--cartao); border: 1px solid var(--borda); border-radius: 14px; padding: 18px; }
+	h2, summary { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
+	summary { cursor: pointer; margin: 0; }
+	details[open] summary { margin-bottom: 12px; }
+	label { display: block; font-weight: 600; margin: 12px 0 5px; }
+	.ajuda { color: var(--suave); font-size: 12.5px; font-weight: 400; }
+	input, textarea, select {
+		width: 100%; padding: 9px 11px; font: inherit; color: var(--texto); background: var(--campo);
+		border: 1px solid var(--borda); border-radius: 9px;
+	}
+	textarea { font-family: ui-monospace, Consolas, monospace; font-size: 13px; resize: vertical; }
+	input:focus, textarea:focus, select:focus { outline: 2px solid var(--cor); outline-offset: -1px; }
+	.modos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+	.modo { margin: 0; border: 2px solid var(--borda); border-radius: 12px; padding: 12px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; }
+	.modo input { width: auto; margin-top: 3px; accent-color: var(--cor); }
+	.modo small { display: block; font-weight: 400; color: var(--suave); }
+	.modo:has(input:checked) { border-color: var(--cor); background: color-mix(in srgb, var(--cor) 8%, transparent); }
+	.marcar { display: flex; gap: 9px; align-items: center; font-weight: 400; }
+	.marcar input { width: auto; accent-color: var(--cor); }
+	.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+	.destino { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+	#pasta { color: var(--suave); }
+	button {
+		font: inherit; font-weight: 600; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+		border: 1px solid var(--borda); background: var(--campo); color: var(--texto);
+	}
+	button:hover:not(:disabled) { filter: brightness(1.06); }
+	button:disabled { opacity: .45; cursor: default; }
+	.principal { background: linear-gradient(135deg, var(--cor), var(--cor2)); color: #fff; border: 0; font-size: 16px; padding: 13px 26px; }
+	.claro { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.35); color: #fff; }
+	.acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+	.aviso { background: var(--aviso); border-color: var(--aviso-borda); }
+	.aviso .acoes { margin-top: 10px; }
+	#andamento { display: grid; gap: 6px; margin-bottom: 10px; }
+	#barra { width: 100%; height: 12px; accent-color: var(--cor); }
+	#eta { color: var(--suave); font-size: 13px; }
+	#status { font-weight: 600; word-break: break-all; margin: 0 0 10px; }
+	#log { background: var(--log); border: 1px solid var(--borda); border-radius: 10px; padding: 10px; height: 300px; overflow: auto; white-space: pre-wrap; font: 12px/1.55 ui-monospace, Consolas, monospace; margin: 0; }
+	#log:empty { display: none; }
+	.marcar + .marcar { margin-top: 8px; }
+	#agenda { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+	#agenda li { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--log); border: 1px solid var(--borda); border-radius: 9px; padding: 8px 10px; }
+	#agenda button { padding: 4px 10px; font-size: 13px; }
+	@media (max-width: 560px) { .modos { grid-template-columns: 1fr; } }
+</style>
+
+<header><div class="topo">
+	<img src="icone.png" alt="">
+	<div class="marca">
+		<h1>Capturador de Sites</h1>
+		<p>Roda em segundo plano: pode minimizar ou fechar esta aba. Clique no ícone da extensão para ver o progresso.</p>
+	</div>
+	<button id="pdf" type="button" class="claro">📄 Salvar em PDF a página de onde abri o painel</button>
+</div></header>
+
+<main>
+	<section id="retomar" class="aviso" hidden>
+		<strong>⏸ <span id="retomarTexto"></span></strong>
+		<div class="acoes">
+			<button id="continuar" type="button" class="principal">▶ Continuar de onde parou</button>
+			<button id="descartar" type="button">Descartar</button>
+		</div>
+	</section>
+
+	<section>
+		<h2>1. O que capturar</h2>
+		<label for="url">Páginas <span class="ajuda">— uma por linha</span></label>
+		<textarea id="url" rows="3"></textarea>
+		<div class="modos">
+			<label class="modo"><input id="seguir" type="radio" name="modo" checked>
+				<span>🌐 O site inteiro<small>Começa pelas páginas acima e segue os links, página por página.</small></span></label>
+			<label class="modo"><input id="sopagina" type="radio" name="modo">
+				<span>📄 Só estas páginas<small>Salva exatamente as páginas da lista e mais nada.</small></span></label>
+		</div>
+	</section>
+
+	<section>
+		<h2>2. Onde salvar</h2>
+		<div class="destino">
+			<button id="escolher" type="button">📁 Escolher pasta…</button>
+			<span id="pasta">⚠ Nenhuma escolhida: salva em Downloads/capturas e o Chrome pode perguntar onde salvar cada arquivo</span>
+		</div>
+	</section>
+
+	<section>
+		<h2>🤖 Automação</h2>
+		<label class="marcar"><input id="autoPerfil" type="checkbox" checked> Reconhecer o tipo de site (wiki, WordPress, loja, fórum…) e ajustar as regras sozinho</label>
+		<label class="marcar"><input id="sitemap" type="checkbox" checked> Usar o mapa do site (sitemap) para achar páginas que os links não mostram</label>
+		<label class="marcar"><input id="retentar" type="checkbox" checked> Tentar de novo, no fim, as páginas que falharem (até 2 vezes)</label>
+		<label class="marcar"><input id="continuarSozinho" type="checkbox" checked> Se o Chrome fechar no meio, continuar sozinho ao abrir de novo</label>
+		<label for="periodo">📅 Repetir esta captura automaticamente</label>
+		<div class="destino">
+			<select id="periodo" style="width:auto">
+				<option value="dia">Todo dia</option>
+				<option value="semana">Toda semana</option>
+			</select>
+			<span>às</span>
+			<input id="hora" type="time" value="03:00" style="width:auto">
+			<button id="agendar" type="button">Agendar</button>
+		</div>
+		<p class="ajuda">Dica: para agendamentos, use "Atualizar só as que mudaram" nas opções avançadas. O Chrome precisa estar aberto no horário.</p>
+		<ul id="agenda"></ul>
+	</section>
+
+	<details>
+		<summary>⚙️ Opções avançadas</summary>
+		<label for="existentes">Páginas que já foram salvas antes</label>
+		<select id="existentes">
+			<option value="recapturar">Capturar de novo (substitui)</option>
+			<option value="pular">Pular (não captura de novo)</option>
+			<option value="mudou">Atualizar só as que mudaram no site</option>
+		</select>
+		<label class="marcar"><input id="arquivos" type="checkbox"> Baixar também os arquivos linkados (PDF, ZIP, DOC, imagens…)</label>
+		<label for="excluir">Não visitar endereços que contenham <span class="ajuda">— um por linha, opcional</span></label>
+		<textarea id="excluir" rows="2" placeholder="Ex.: Category:&#10;/User"></textarea>
+		<label for="prefixo">Só visitar endereços que começam com</label>
+		<input id="prefixo">
+		<div class="grade">
+			<div><label for="max">Máximo de páginas</label><input id="max" type="number" value="2000" min="1"></div>
+			<div><label for="pausa">Pausa entre páginas (ms)</label><input id="pausa" type="number" value="1000" min="0"></div>
+			<div><label for="profundidade">Profundidade máx. <span class="ajuda">(0 = sem limite)</span></label><input id="profundidade" type="number" value="0" min="0"></div>
+		</div>
+	</details>
+
+	<div class="acoes">
+		<button id="iniciar" class="principal">▶ Iniciar captura</button>
+		<button id="parar" disabled>⏸ Parar</button>
+	</div>
+
+	<section>
+		<h2>Progresso</h2>
+		<div id="andamento" hidden><progress id="barra" value="0" max="1"></progress><span id="eta"></span></div>
+		<p id="status">Nenhuma captura em andamento.</p>
+		<pre id="log"></pre>
+	</section>
+</main>
+<script type="module" src="painel.js"></script>
+</html>
