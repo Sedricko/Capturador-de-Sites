@@ -150,6 +150,11 @@ chrome.runtime.onMessage.addListener(msg => {
 	}
 });
 
+// O filtro "só visitar endereços que começam com" acompanha o site colado (ele fica escondido na aba Opções).
+$("url").addEventListener("input", () => {
+	try { $("prefixo").value = new URL($("url").value.trim().split("\n")[0]).origin + "/"; } catch { /* ainda digitando */ }
+});
+
 // Meus sites: o que já foi capturado (registro do índice), com atalhos.
 async function mostrarSites() {
 	const todos = await chrome.storage.local.get(null);
@@ -192,9 +197,17 @@ async function mostrarSites() {
 
 function novoTrabalho() {
 	const seguir = $("seguir").checked;
-	// prefixo vazio no modo site inteiro sairia seguindo links da internet toda: usa o site da 1ª página
-	if (seguir && !$("prefixo").value.trim()) {
-		try { $("prefixo").value = new URL($("url").value.trim().split("\n")[0]).origin + "/"; } catch { /* validado abaixo */ }
+	// prefixo vazio (sairia seguindo a internet toda) ou de outro site (sobra de uma captura anterior):
+	// usa o site da 1ª página
+	if (seguir) {
+		try {
+			const site = new URL($("url").value.trim().split("\n")[0]).origin + "/";
+			const atual = $("prefixo").value.trim();
+			if (!atual || !atual.startsWith(site) && !site.startsWith(atual)) {
+				if (atual) aviso(`ℹ "Só visitar endereços que começam com" era de outro site (${atual}); ajustei para ${site}.`);
+				$("prefixo").value = site;
+			}
+		} catch { /* validado abaixo */ }
 	}
 	const prefixo = $("prefixo").value.trim();
 	const max = +$("max").value, pausa = +$("pausa").value;
