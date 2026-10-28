@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-br">
+<meta charset="utf-8">
+<title>Capturador de Sites — Tutorial</title>
+<style>
+	@page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+	* { box-sizing: border-box; }
+	body { font: 10.5pt/1.55 "Segoe UI", system-ui, sans-serif; color: #1d2230; margin: 0; }
+	h1 { font-size: 22pt; margin: 0 0 6pt; color: #3b32c9; }
+	h2 { font-size: 15pt; margin: 0 0 8pt; color: #3b32c9; border-bottom: 2px solid #e2e4ec; padding-bottom: 4pt; }
+	h3 { font-size: 11.5pt; margin: 14pt 0 4pt; }
+	p { margin: 0 0 7pt; }
+	ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+	li { margin: 2pt 0; }
+	.quebra { break-before: page; }
+	.capa { height: 250mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+		background: linear-gradient(160deg, #4f46e5, #7c3aed); color: #fff; border-radius: 10px; margin: -2mm; }
+	.capa img { width: 110px; height: 110px; margin-bottom: 18pt; }
+	.capa h1 { color: #fff; font-size: 32pt; }
+	.capa p { font-size: 13pt; opacity: .9; max-width: 120mm; }
+	.capa small { margin-top: 30pt; opacity: .75; }
+	.sumario ol { columns: 1; font-size: 11pt; }
+	.sumario li { margin: 5pt 0; }
+	.sumario a { color: #1d2230; text-decoration: none; }
+	.print { width: 100%; border: 1px solid #e2e4ec; border-radius: 8px; margin: 6pt 0 10pt; }
+	.print.meio { width: auto; max-width: 100%; max-height: 105mm; display: block; margin-left: auto; margin-right: auto; }
+	.dica, .atencao { border-radius: 8px; padding: 8pt 10pt; margin: 8pt 0; break-inside: avoid; }
+	.dica { background: #eef0ff; border-left: 4px solid #4f46e5; }
+	.atencao { background: #fff7e0; border-left: 4px solid #e0a800; }
+	table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.8pt; break-inside: auto; }
+	th, td { border: 1px solid #e2e4ec; padding: 5pt 7pt; text-align: left; vertical-align: top; }
+	th { background: #f3f4f8; }
+	tr { break-inside: avoid; }
+	td:first-child { width: 30%; font-weight: 600; }
+	.passos { counter-reset: passo; list-style: none; padding: 0; }
+	.passos li { counter-increment: passo; position: relative; padding-left: 26pt; margin: 7pt 0; }
+	.passos li::before { content: counter(passo); position: absolute; left: 0; top: -1pt; width: 18pt; height: 18pt; border-radius: 50%;
+		background: #4f46e5; color: #fff; text-align: center; font-weight: 700; line-height: 18pt; font-size: 9.5pt; }
+	code { background: #f3f4f8; padding: 0 3pt; border-radius: 3px; font-size: 9.5pt; }
+	.duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }
+	.duas img { width: 100%; }
+	.receita { border: 1px solid #e2e4ec; border-radius: 8px; padding: 8pt 10pt; margin: 8pt 0; break-inside: avoid; }
+	.receita b { color: #3b32c9; }
+</style>
+
+<section class="capa">
+	<img src="icone.png" alt="">
+	<h1>Capturador de Sites</h1>
+	<p>Tutorial completo: como usar e para que serve cada função</p>
+	<small>Versão 6.0</small>
+</section>
+
+<section class="quebra sumario">
+	<h2>Sumário</h2>
+	<ol>
+		<li><a href="#s1">O que é e o que você ganha</a></li>
+		<li><a href="#s2">Instalar e atualizar</a></li>
+		<li><a href="#s3">Sua primeira captura em 6 passos</a></li>
+		<li><a href="#s4">Navegando no site offline</a></li>
+		<li><a href="#s5">Aba 🚀 Capturar</a></li>
+		<li><a href="#s6">Aba 🤖 Automação</a></li>
+		<li><a href="#s7">Aba 🗂️ Meus sites</a></li>
+		<li><a href="#s8">Aba ⚙️ Opções</a></li>
+		<li><a href="#s9">Botão direito e PDF de uma página</a></li>
+		<li><a href="#s10">Progresso, pausar e continuar</a></li>
+		<li><a href="#s11">Receitas prontas</a></li>
+		<li><a href="#s12">Problemas comuns</a></li>
+		<li><a href="#s13">Limites conhecidos</a></li>
+	</ol>
+</section>
+
+<section class="quebra" id="s1">
+	<h2>1. O que é e o que você ganha</h2>
+	<p>O <b>Capturador de Sites</b> é uma extensão do Chrome que salva <b>sites inteiros</b> no seu computador para você
+	navegar <b>sem internet</b>, como se estivesse no site de verdade.</p>
+	<ul>
+		<li><b>Percorre o site sozinho</b>, página por página, seguindo os links — você só informa por onde começar.</li>
+		<li><b>Roda em segundo plano</b>: pode minimizar, fechar o painel e continuar usando o computador.</li>
+		<li>Cada página vira um arquivo <code>.html</code> com <b>imagens, estilos e fontes</b> dentro, <b>sem anúncios</b> e sem scripts.</li>
+		<li>Os <b>links entre as páginas passam a abrir os arquivos salvos</b>: você navega pelos menus normalmente, offline.</li>
+		<li>Gera uma <b>página inicial</b> (<code>00-INICIO.html</code>) com o "esqueleto" do site e <b>busca</b> por título e por texto.</li>
+		<li>Extras: <b>livro PDF</b> do site inteiro, <b>pacote .zip</b>, <b>miniaturas</b>, <b>máquina do tempo</b> (guarda versões antigas)
+		e <b>agendamento</b> para manter a cópia atualizada.</li>
+	</ul>
+	<div class="dica">💡 <b>Em resumo:</b> clique no ícone, cole o endereço, escolha a pasta e clique em <b>Iniciar captura</b>. O resto é automático.</div>
+</section>
+
+<section id="s2">
+	<h2 style="margin-top:16pt">2. Instalar e atualizar</h2>
+	<h3>Instalar</h3>
+	<ol class="passos">
+		<li>Descompacte o arquivo <code>capturador.zip</code> numa pasta fixa (ex.: <code>Documentos\Capturador</code>).</li>
+		<li>No Chrome, abra <code>chrome://extensions</code>.</li>
+		<li>Ligue o <b>Modo do desenvolvedor</b> (canto superior direito).</li>
+		<li>Clique em <b>Carregar sem compactação</b> e escolha a pasta descompactada.</li>
+		<li>Fixe o ícone 📌 na barra do Chrome para achá-lo fácil.</li>
+	</ol>
+	<h3>Atualizar para uma versão nova</h3>
+	<p>Substitua os arquivos da pasta pelos da versão nova e clique no botão <b>↻ recarregar</b> da extensão em <code>chrome://extensions</code>.</p>
+	<div class="atencao">⚠️ <b>Não use "Remover"</b> para atualizar: isso apaga a pasta de destino escolhida, os agendamentos e o histórico de sites que a extensão guarda.</div>
+</section>
+
+<section class="quebra" id="s3">
+	<h2>3. Sua primeira captura em 6 passos</h2>
+	<ol class="passos">
+		<li>Abra o site que quer salvar (ex.: a página principal de uma wiki).</li>
+		<li>Clique no <b>ícone do Capturador</b>. O painel abre já com o endereço preenchido.</li>
+		<li>Em <b>1. O que capturar</b>, deixe marcado <b>🌐 O site inteiro</b>.</li>
+		<li>Em <b>2. Onde salvar</b>, clique em <b>📁 Escolher pasta…</b> e escolha onde guardar (só na primeira vez).</li>
+		<li>Clique em <b>▶ Iniciar captura</b>.</li>
+		<li>Acompanhe em <b>Progresso</b> — ou feche o painel. Quando terminar, chega uma notificação e o ícone mostra ✔.</li>
+	</ol>
+	<img class="print meio" src="v6-capturar.png" alt="Aba Capturar">
+	<p>No fim, abra a pasta escolhida → pasta do site → <code>00-INICIO.html</code>.</p>
+</section>
+
+<section class="quebra" id="s4">
+	<h2>4. Navegando no site offline</h2>
+	<p>A pasta escolhida fica assim:</p>
+	<table>
+		<tr><th>Arquivo / pasta</th><th>O que é</th></tr>
+		<tr><td>00-SITES.html</td><td>Lista de todos os sites que você já capturou.</td></tr>
+		<tr><td>site.com/00-INICIO.html</td><td>Página inicial do site offline — <b>comece por aqui</b>.</td></tr>
+		<tr><td>site.com/wiki/…html</td><td>As páginas, nas mesmas pastas do site original.</td></tr>
+		<tr><td>site.com/_recursos/</td><td>Estilos e imagens compartilhados entre as páginas (economia de espaço). Não apague.</td></tr>
+		<tr><td>site.com/_miniaturas/</td><td>Miniaturas das páginas (se ligadas).</td></tr>
+		<tr><td>livro-site.com.pdf / site.com.zip</td><td>Livro PDF e pacote .zip (se pedidos).</td></tr>
+	</table>
+	<div class="duas">
+		<div><img class="print" src="1-inicio.png" alt="Página inicial"><p><b>Aba Início:</b> botão grande <b>▶ Abrir o site</b>, páginas principais em cartões e seções.</p></div>
+		<div><img class="print" src="2-esqueleto.png" alt="Esqueleto"><p><b>Aba Esqueleto:</b> árvore com todas as páginas e <b>busca</b> por título <b>ou por qualquer palavra do texto</b>.</p></div>
+	</div>
+	<ul>
+		<li>Clique nos links e menus normalmente: eles abrem os arquivos salvos, na mesma aba. Use <b>Voltar</b> do navegador à vontade.</li>
+		<li>Em toda página há um botão <b>☰ Índice do site</b> no canto inferior direito, que volta para a página inicial.</li>
+		<li>Páginas que ficaram de fora (pelo limite) abrem um aviso <b>📭 "não capturada"</b> com o link para a versão online.</li>
+		<li>Páginas que mudaram mostram <b>🕰️ datas</b> no esqueleto: clique para abrir a versão antiga.</li>
+	</ul>
+	<div class="dica">💡 Pode copiar a pasta do site inteira para um pendrive ou outro computador. Só não mova arquivos <b>de dentro</b> dela.</div>
+</section>
+
+<section class="quebra" id="s5">
+	<h2>5. Aba 🚀 Capturar</h2>
+	<table>
+		<tr><th>Item</th><th>Para que serve / quando usar</th></tr>
+		<tr><td>Páginas (uma por linha)</td><td>Onde a captura começa. No modo "site inteiro", basta a página principal. No modo "só estas", cole todas as páginas que quer.</td></tr>
+		<tr><td>🌐 O site inteiro</td><td>Segue os links e captura o site todo, página por página. Use para guardar uma wiki, um blog, um manual.</td></tr>
+		<tr><td>📄 Só estas páginas</td><td>Salva exatamente as páginas da lista e mais nada (podem ser de sites diferentes). Links para páginas fora da lista continuam abrindo online.</td></tr>
+		<tr><td>📁 Escolher pasta…</td><td>Onde tudo é gravado, sem perguntar nada. Escolha uma vez; a extensão lembra. Sem pasta, vai para Downloads/capturas e o Chrome pode perguntar onde salvar.</td></tr>
+		<tr><td>📕 Livro PDF</td><td>Um PDF único com capa, sumário clicável e todas as páginas. Bom para ler no celular, imprimir ou arquivar.</td></tr>
+		<tr><td>📦 Pacote .zip</td><td>Um arquivo .zip com o site inteiro, para mandar a alguém ou guardar.</td></tr>
+		<tr><td>🖼️ Miniaturas</td><td>Imagenzinha de cada página nos cartões da página inicial offline.</td></tr>
+		<tr><td>🖨️ Salvar em PDF a página…</td><td>(topo do painel) Gera o PDF só da página de onde você abriu o painel.</td></tr>
+		<tr><td>▶ Iniciar / ⏸ Parar</td><td>Ficam sempre visíveis, em qualquer aba. Parar termina a página em andamento e deixa a captura pronta para continuar depois.</td></tr>
+	</table>
+	<div class="atencao">⚠️ Livro e miniaturas usam o "modo depuração" do Chrome: enquanto trabalham, aparece no topo uma faixa dizendo que a extensão "começou a depurar este navegador". É normal e some no fim.</div>
+</section>
+
+<section class="quebra" id="s6">
+	<h2>6. Aba 🤖 Automação</h2>
+	<img class="print meio" src="v6-automacao.png" alt="Aba Automação">
+	<table>
+		<tr><th>Opção</th><th>Para que serve</th></tr>
+		<tr><td>Reconhecer o tipo de site</td><td>Identifica wiki/Fandom, WordPress, loja Shopify, fórum Discourse e Blogger e ignora sozinho o que não interessa (login, admin, carrinho, feeds). Você não precisa preencher filtros.</td></tr>
+		<tr><td>Usar o mapa do site (sitemap)</td><td>Lê a lista oficial de páginas que muitos sites publicam e acha páginas que nenhum link mostra.</td></tr>
+		<tr><td>Clicar em "Carregar mais"</td><td>Antes de salvar, clica nos botões "Carregar mais / Ver mais" e desce até o fim de páginas com rolagem infinita, para não perder itens.</td></tr>
+		<tr><td>Tentar de novo as que falharem</td><td>Páginas com erro voltam para o fim da fila e são tentadas de novo (até 2 vezes).</td></tr>
+		<tr><td>Continuar sozinho</td><td>Se o Chrome fechar no meio (queda de energia, reinício), ao abrir de novo a captura continua sozinha em 1 minuto.</td></tr>
+		<tr><td>📅 Agendamentos</td><td>Repete a captura configurada todo dia ou toda semana no horário escolhido. Aparece numa lista com botão Remover.</td></tr>
+	</table>
+	<div class="dica">💡 Para manter um site sempre em dia: em <b>Opções</b> escolha "Atualizar só as que mudaram" e depois agende a captura semanalmente.</div>
+</section>
+
+<section class="quebra" id="s7">
+	<h2>7. Aba 🗂️ Meus sites</h2>
+	<img class="print meio" src="meus-sites.png" alt="Aba Meus sites">
+	<table>
+		<tr><th>Botão</th><th>O que faz</th></tr>
+		<tr><td>🔁 Atualizar agora</td><td>Recaptura o site a partir da página inicial, salvando só as páginas que mudaram.</td></tr>
+		<tr><td>📦 .zip</td><td>Gera o .zip de um site já capturado, sem capturar de novo.</td></tr>
+		<tr><td>📕 Livro PDF</td><td>Gera o livro PDF de um site já capturado.</td></tr>
+		<tr><td>🗑️ Esquecer</td><td>Tira o site da lista e do índice. <b>Não apaga</b> os arquivos da pasta.</td></tr>
+	</table>
+</section>
+
+<section class="quebra" id="s8">
+	<h2>8. Aba ⚙️ Opções</h2>
+	<img class="print meio" src="v6-opcoes.png" alt="Aba Opções">
+	<table>
+		<tr><th>Opção</th><th>Para que serve / sugestão</th></tr>
+		<tr><td>Páginas ao mesmo tempo</td><td>Quantas páginas captura em paralelo (1 a 4). Mais é mais rápido, mas pesa mais no computador e no site. Padrão: 2.</td></tr>
+		<tr><td>Pausa entre páginas</td><td>Intervalo para não sobrecarregar o site. Padrão: 1000 ms (1 s).</td></tr>
+		<tr><td>Máximo de páginas</td><td>Limite de segurança. As que sobrarem aparecem como "não capturadas".</td></tr>
+		<tr><td>Profundidade máx.</td><td>Até quantos cliques de distância da página inicial seguir. 0 = sem limite.</td></tr>
+		<tr><td>Páginas já salvas antes</td><td><b>Capturar de novo</b> (substitui), <b>Pular</b> (rápido, só completa o que falta) ou <b>Atualizar só as que mudaram</b> (ideal para agendamentos).</td></tr>
+		<tr><td>Estilos e imagens uma vez só</td><td>Guarda o que se repete entre páginas em <code>_recursos/</code>. Economiza muito espaço. Deixe ligado.</td></tr>
+		<tr><td>🕰️ Máquina do tempo</td><td>Quando uma página mudou, guarda a versão anterior ao lado dela (com a data) em vez de apagar.</td></tr>
+		<tr><td>Baixar arquivos linkados</td><td>Baixa também PDFs, ZIPs, documentos e imagens que o site oferece em links.</td></tr>
+		<tr><td>Só visitar endereços que começam com</td><td>Limita a captura a uma parte do site (ex.: só <code>site.com/blog/</code>). Vazio = o site todo.</td></tr>
+		<tr><td>Não visitar endereços que contenham</td><td>Um trecho por linha (ex.: <code>Category:</code>). Essas páginas ficam de fora.</td></tr>
+	</table>
+</section>
+
+<section class="quebra" id="s9">
+	<h2>9. Botão direito e PDF de uma página</h2>
+	<p>Clique com o <b>botão direito</b> em qualquer página (ou no ícone da extensão) e escolha:</p>
+	<table>
+		<tr><th>Item do menu</th><th>O que faz</th></tr>
+		<tr><td>🌐 Capturar este site inteiro</td><td>Começa a capturar o site da página atual, com as últimas configurações do painel. Avisa por notificação.</td></tr>
+		<tr><td>📄 Capturar só esta página</td><td>Salva só a página atual.</td></tr>
+		<tr><td>🖨️ Salvar esta página em PDF</td><td>Gera um PDF da página (com as imagens carregadas) direto nos Downloads, sem janela de impressão.</td></tr>
+		<tr><td>⚙️ Abrir o painel</td><td>Abre o painel de configuração.</td></tr>
+	</table>
+</section>
+
+<section id="s10">
+	<h2 style="margin-top:16pt">10. Progresso, pausar e continuar</h2>
+	<p>O cartão <b>Progresso</b> mostra o site em captura, uma barra com o <b>tempo estimado</b> e o registro de tudo o que aconteceu:</p>
+	<table>
+		<tr><th>Sinal no registro</th><th>Significado</th></tr>
+		<tr><td>✔ 12 endereço</td><td>Página salva (número de ordem).</td></tr>
+		<tr><td>↷ já salva</td><td>Pulada porque já existia (ou não mudou).</td></tr>
+		<tr><td>✖ endereço — motivo</td><td>Falhou. Se "vou tentar de novo no fim", ela volta para a fila.</td></tr>
+		<tr><td>🧠 / 🗺️ / ➕ / 🕰️ / 📎</td><td>Tipo de site reconhecido / mapa do site lido / "carregar mais" clicado / versão antiga guardada / arquivo linkado baixado.</td></tr>
+	</table>
+	<p><b>No ícone da extensão:</b> um número = páginas salvas até agora · <b>✔</b> = terminou · <b>⏸</b> = captura pausada · <b>PDF</b> = gerando PDF · <b>✖</b> = erro.</p>
+	<ul>
+		<li><b>Parar:</b> termina a página em andamento e pausa. O botão <b>▶ Continuar de onde parou</b> aparece no topo do painel.</li>
+		<li><b>Fechou o Chrome no meio?</b> Ao abrir, a captura continua sozinha (ou clique em Continuar).</li>
+		<li><b>Começar outro site com uma captura rodando:</b> o painel pergunta se deve parar a atual e começar a nova.</li>
+	</ul>
+</section>
+
+<section class="quebra" id="s11">
+	<h2>11. Receitas prontas</h2>
+	<div class="receita"><b>📚 Guardar uma wiki inteira (ex.: Fandom)</b><br>
+	Abra a página principal → ícone → 🌐 O site inteiro → pasta → Iniciar. A extensão reconhece a wiki e pula as páginas de sistema sozinha.</div>
+	<div class="receita"><b>📄 Salvar só algumas páginas</b><br>
+	Cole os endereços (um por linha) → 📄 Só estas páginas → Iniciar.</div>
+	<div class="receita"><b>🔄 Manter um site sempre atualizado</b><br>
+	Opções → "Atualizar só as que mudaram" · Automação → Toda semana às 03:00 → 📅 Agendar. Com a 🕰️ máquina do tempo ligada, as versões antigas ficam guardadas.</div>
+	<div class="receita"><b>📱 Ler no celular ou imprimir</b><br>
+	Marque 📕 Livro PDF antes de iniciar (ou use Meus sites → 📕 Livro PDF depois) e envie o PDF para o celular.</div>
+	<div class="receita"><b>💾 Levar no pendrive / mandar para alguém</b><br>
+	Marque 📦 Pacote .zip (ou Meus sites → 📦 .zip). Quem receber descompacta e abre o <code>00-INICIO.html</code>.</div>
+	<div class="receita"><b>⚡ Capturar um site grande mais rápido</b><br>
+	Opções → Páginas ao mesmo tempo = 3 ou 4 · Pausa = 500. Deixe "Pular" ligado se estiver completando uma captura anterior.</div>
+	<div class="receita"><b>🧩 Completar uma captura que parou no meio</b><br>
+	Clique em ▶ Continuar de onde parou. Se perdeu o botão: Opções → "Pular" → Iniciar de novo (só captura o que falta).</div>
+</section>
+
+<section class="quebra" id="s12">
+	<h2>12. Problemas comuns</h2>
+	<table>
+		<tr><th>Problema</th><th>Solução</th></tr>
+		<tr><td>O Chrome pergunta onde salvar cada arquivo</td><td>Escolha uma pasta no painel (📁 Escolher pasta…). Sem pasta, a extensão usa os Downloads do Chrome, que perguntam.</td></tr>
+		<tr><td>"Falta liberar a pasta" depois de reiniciar</td><td>Regra de segurança do Chrome: abra o painel e clique em Iniciar ou Continuar — ele pede um clique de confirmação.</td></tr>
+		<tr><td>A captura fica lenta com o Chrome em segundo plano</td><td>Desligue a "Economia de energia" e a "Economia de memória" em Configurações → Desempenho. Em último caso, abra o Chrome com <code>--disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-background-timer-throttling</code> no atalho.</td></tr>
+		<tr><td>Fechei a janela minimizada de captura</td><td>Não tem problema: a extensão abre outra e continua. Ela some sozinha no fim.</td></tr>
+		<tr><td>Aparece "começou a depurar este navegador"</td><td>É do livro PDF, das miniaturas ou do PDF de página. Normal; some quando terminam.</td></tr>
+		<tr><td>Uma página ficou sem algo (busca, login, comentários)</td><td>Esses recursos dependem do servidor do site e não funcionam offline. O conteúdo da página é salvo.</td></tr>
+		<tr><td>Muitas páginas "não capturadas"</td><td>Aumente o Máximo de páginas em Opções e use "Pular" para completar.</td></tr>
+		<tr><td>Apareceram páginas que não queria</td><td>Opções → "Não visitar endereços que contenham" (um trecho por linha) ou limite com "Só visitar endereços que começam com".</td></tr>
+	</table>
+</section>
+
+<section id="s13">
+	<h2 style="margin-top:16pt">13. Limites conhecidos</h2>
+	<ul>
+		<li>Scripts não são salvos: busca do site, login, comentários, vídeos do YouTube e menus que só abrem com clique não funcionam offline. Menus que abrem ao passar o mouse funcionam.</li>
+		<li>Uma captura por vez (mesmo de sites diferentes).</li>
+		<li>Agendamentos e a retomada automática precisam do Chrome aberto.</li>
+		<li>Livro PDF, .zip, miniaturas e máquina do tempo precisam de uma pasta escolhida. O livro junta até 300 páginas.</li>
+		<li>Mapas do site compactados (<code>.gz</code>) não são lidos.</li>
+	</ul>
+	<div class="dica">💡 O código, as versões e este tutorial ficam no repositório particular <b>Sedricko/Capturador-de-Sites</b> no GitHub.</div>
+</section>
+</html>

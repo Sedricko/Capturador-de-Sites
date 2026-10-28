@@ -4,6 +4,8 @@ Extensão do Chrome que salva **sites inteiros para navegar offline**, página p
 Cada página vira um `.html` único (imagens, CSS e fontes embutidos), os links entre páginas passam a apontar
 para os arquivos locais, e uma página inicial (`00-INICIO.html`) mostra o esqueleto do site com busca.
 
+📘 **Tutorial completo (PDF):** [`docs/Tutorial-Capturador-de-Sites.pdf`](docs/Tutorial-Capturador-de-Sites.pdf) — como usar e para que serve cada função.
+
 ## Instalar
 
 1. Baixe este repositório (Code → Download ZIP) e descompacte.
