@@ -71,3 +71,30 @@ assert.equal(new Date(proximoHorario("dia", "03:00", agora)).getDate(), 29, "ama
 assert.equal(new Date(proximoHorario("dia", "23:30", agora)).getDate(), 28, "hoje mais tarde");
 assert.equal(new Date(proximoHorario("semana", "09:00", agora)).getDate(), 4, "daqui a 7 dias");
 console.log("ok 5.1");
+import { separarRecursos, aplicarRecursos, extensaoImagem, criarZip } from "./regras.js";
+import { execFileSync } from "node:child_process";
+import { writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+{
+	const css = "a{}" + "x".repeat(5000), img = "data:image/png;base64," + "A".repeat(3000), pequena = "data:image/gif;base64,R0lGOD";
+	const html = `<style media="print">${css}</style><style>b{}</style><img src="${img}"><i style="background:url(${img})"></i><img src="${pequena}">`;
+	const r = separarRecursos(html);
+	assert.deepEqual(r, { estilos: [css], imagens: [img] }, "só o que é grande, sem repetição");
+	assert.equal(extensaoImagem(img), "png");
+	const novo = aplicarRecursos(html, new Map([[css, "../_recursos/a.css"], [img, "../_recursos/b.png"]]));
+	assert.equal(novo, `<link rel="stylesheet" media="print" href="../_recursos/a.css"><style>b{}</style><img src="../_recursos/b.png"><i style="background:url(../_recursos/b.png)"></i><img src="${pequena}">`);
+	// o zip abre no unzip de verdade, com acentos no nome
+	const zip = await criarZip([{ nome: "site/página.html", dados: new TextEncoder().encode("olá ".repeat(1000)) }, { nome: "site/_recursos/x.bin", dados: new Uint8Array([0, 1, 2, 255]) }]);
+	const pasta = mkdtempSync(tmpdir() + "/zip-"); writeFileSync(pasta + "/t.zip", zip);
+	const lista = execFileSync("unzip", ["-l", pasta + "/t.zip"]).toString();
+	assert.ok(lista.includes("site/página.html") && lista.includes("5000"), lista);
+	assert.equal(execFileSync("unzip", ["-p", pasta + "/t.zip", "site/página.html"]).toString(), "olá ".repeat(1000));
+	execFileSync("unzip", ["-tq", pasta + "/t.zip"]);
+}
+console.log("ok 6.0 recursos e zip");
+{
+	const ind = montarIndice("s.com", [{ url: "https://s.com/a", arquivo: "capturas/s.com/a.html", titulo: "A", miniatura: "_miniaturas/a.jpg", versoes: [{ data: "27/10/2026 10:00", arquivo: "_versoes/a/2026-10-27_10-00.html" }] }], "capturas/s.com/a.html");
+	assert.ok(ind.includes('<img class="mini" src="_miniaturas/a.jpg"'), "miniatura no cartão");
+	assert.ok(ind.includes('🕰️ <a href="_versoes/a/2026-10-27_10-00.html">27/10/2026 10:00</a>'), "link da versão antiga");
+}
+console.log("ok 6.0 índice");

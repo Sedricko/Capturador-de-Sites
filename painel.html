@@ -69,16 +69,33 @@
 	#agenda li { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--log); border: 1px solid var(--borda); border-radius: 9px; padding: 8px 10px; }
 	#agenda button { padding: 4px 10px; font-size: 13px; }
 	@media (max-width: 560px) { .modos { grid-template-columns: 1fr; } }
+	nav.abas { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; flex-wrap: wrap; }
+	nav.abas button { border: 0; border-radius: 10px 10px 0 0; background: rgba(255,255,255,.15); color: #fff; padding: 10px 16px; font-size: 14px; }
+	nav.abas button.ativa { background: var(--fundo); color: var(--texto); }
+	.secao { display: grid; gap: 14px; }
+	.sites { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+	.sites li { background: var(--log); border: 1px solid var(--borda); border-radius: 12px; padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+	.sites b { font-size: 15px; } .sites small { color: var(--suave); display: block; }
+	.sites .acoes button { padding: 6px 12px; font-size: 13px; }
+	.vazio { color: var(--suave); }
 </style>
 
-<header><div class="topo">
-	<img src="icone.png" alt="">
-	<div class="marca">
-		<h1>Capturador de Sites</h1>
-		<p>Roda em segundo plano: pode minimizar ou fechar esta aba. Clique no ícone da extensão para ver o progresso.</p>
+<header>
+	<div class="topo">
+		<img src="icone.png" alt="">
+		<div class="marca">
+			<h1>Capturador de Sites</h1>
+			<p>Roda em segundo plano: pode minimizar ou fechar esta aba. Clique no ícone da extensão para ver o progresso.</p>
+		</div>
+		<button id="pdf" type="button" class="claro">🖨️ Salvar em PDF a página de onde abri o painel</button>
 	</div>
-	<button id="pdf" type="button" class="claro">📄 Salvar em PDF a página de onde abri o painel</button>
-</div></header>
+	<nav class="abas" role="tablist">
+		<button class="ativa" data-aba="capturar" role="tab">🚀 Capturar</button>
+		<button data-aba="automacao" role="tab">🤖 Automação</button>
+		<button data-aba="sites" role="tab">🗂️ Meus sites</button>
+		<button data-aba="opcoes" role="tab">⚙️ Opções</button>
+	</nav>
+</header>
 
 <main>
 	<section id="retomar" class="aviso" hidden>
@@ -89,65 +106,97 @@
 		</div>
 	</section>
 
-	<section>
-		<h2>1. O que capturar</h2>
-		<label for="url">Páginas <span class="ajuda">— uma por linha</span></label>
-		<textarea id="url" rows="3"></textarea>
-		<div class="modos">
-			<label class="modo"><input id="seguir" type="radio" name="modo" checked>
-				<span>🌐 O site inteiro<small>Começa pelas páginas acima e segue os links, página por página.</small></span></label>
-			<label class="modo"><input id="sopagina" type="radio" name="modo">
-				<span>📄 Só estas páginas<small>Salva exatamente as páginas da lista e mais nada.</small></span></label>
-		</div>
-	</section>
+	<div class="secao" data-secao="capturar">
+		<section>
+			<h2>1. O que capturar</h2>
+			<label for="url">Páginas <span class="ajuda">— uma por linha</span></label>
+			<textarea id="url" rows="3"></textarea>
+			<div class="modos">
+				<label class="modo"><input id="seguir" type="radio" name="modo" checked>
+					<span>🌐 O site inteiro<small>Começa pelas páginas acima e segue os links, página por página.</small></span></label>
+				<label class="modo"><input id="sopagina" type="radio" name="modo">
+					<span>📄 Só estas páginas<small>Salva exatamente as páginas da lista e mais nada.</small></span></label>
+			</div>
+		</section>
+		<section>
+			<h2>2. Onde salvar</h2>
+			<div class="destino">
+				<button id="escolher" type="button">📁 Escolher pasta…</button>
+				<span id="pasta">⚠ Nenhuma escolhida: salva em Downloads/capturas e o Chrome pode perguntar onde salvar cada arquivo</span>
+			</div>
+		</section>
+		<section>
+			<h2>3. Gerar também, no final</h2>
+			<label class="marcar"><input id="livro" type="checkbox"> 📕 Livro PDF do site inteiro (sumário clicável e marcadores)</label>
+			<label class="marcar"><input id="zip" type="checkbox"> 📦 Pacote .zip do site, para guardar ou mandar</label>
+			<label class="marcar"><input id="miniaturas" type="checkbox"> 🖼️ Miniaturas das páginas na página inicial offline</label>
+			<p class="ajuda">Livro, .zip e miniaturas precisam de uma pasta escolhida. Livro e miniaturas usam o modo depuração do Chrome: aparece uma faixa "começou a depurar" enquanto trabalham.</p>
+		</section>
+	</div>
 
-	<section>
-		<h2>2. Onde salvar</h2>
-		<div class="destino">
-			<button id="escolher" type="button">📁 Escolher pasta…</button>
-			<span id="pasta">⚠ Nenhuma escolhida: salva em Downloads/capturas e o Chrome pode perguntar onde salvar cada arquivo</span>
-		</div>
-	</section>
+	<div class="secao" data-secao="automacao" hidden>
+		<section>
+			<h2>🤖 Automação</h2>
+			<label class="marcar"><input id="autoPerfil" type="checkbox" checked> Reconhecer o tipo de site (wiki, WordPress, loja, fórum…) e ajustar as regras sozinho</label>
+			<label class="marcar"><input id="sitemap" type="checkbox" checked> Usar o mapa do site (sitemap) para achar páginas que os links não mostram</label>
+			<label class="marcar"><input id="carregarMais" type="checkbox" checked> Clicar sozinho em "Carregar mais" / "Ver mais" antes de salvar</label>
+			<label class="marcar"><input id="retentar" type="checkbox" checked> Tentar de novo, no fim, as páginas que falharem (até 2 vezes)</label>
+			<label class="marcar"><input id="continuarSozinho" type="checkbox" checked> Se o Chrome fechar no meio, continuar sozinho ao abrir de novo</label>
+		</section>
+		<section>
+			<h2>📅 Agendamentos</h2>
+			<p class="ajuda" style="margin-top:0">Repete a captura configurada na aba "Capturar". Dica: em Opções, use "Atualizar só as que mudaram". O Chrome precisa estar aberto no horário.</p>
+			<div class="destino">
+				<select id="periodo" style="width:auto">
+					<option value="dia">Todo dia</option>
+					<option value="semana">Toda semana</option>
+				</select>
+				<span>às</span>
+				<input id="hora" type="time" value="03:00" style="width:auto">
+				<button id="agendar" type="button">📅 Agendar esta captura</button>
+			</div>
+			<ul id="agenda"></ul>
+		</section>
+	</div>
 
-	<section>
-		<h2>🤖 Automação</h2>
-		<label class="marcar"><input id="autoPerfil" type="checkbox" checked> Reconhecer o tipo de site (wiki, WordPress, loja, fórum…) e ajustar as regras sozinho</label>
-		<label class="marcar"><input id="sitemap" type="checkbox" checked> Usar o mapa do site (sitemap) para achar páginas que os links não mostram</label>
-		<label class="marcar"><input id="retentar" type="checkbox" checked> Tentar de novo, no fim, as páginas que falharem (até 2 vezes)</label>
-		<label class="marcar"><input id="continuarSozinho" type="checkbox" checked> Se o Chrome fechar no meio, continuar sozinho ao abrir de novo</label>
-		<label for="periodo">📅 Repetir esta captura automaticamente</label>
-		<div class="destino">
-			<select id="periodo" style="width:auto">
-				<option value="dia">Todo dia</option>
-				<option value="semana">Toda semana</option>
+	<div class="secao" data-secao="sites" hidden>
+		<section>
+			<h2>🗂️ Meus sites</h2>
+			<ul id="sites" class="sites"></ul>
+		</section>
+	</div>
+
+	<div class="secao" data-secao="opcoes" hidden>
+		<section>
+			<h2>⚡ Desempenho</h2>
+			<div class="grade">
+				<div><label for="paralelas">Páginas ao mesmo tempo</label>
+					<select id="paralelas"><option value="1">1 (mais leve)</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4 (mais rápido)</option></select></div>
+				<div><label for="pausa">Pausa entre páginas (ms)</label><input id="pausa" type="number" value="1000" min="0"></div>
+				<div><label for="max">Máximo de páginas</label><input id="max" type="number" value="2000" min="1"></div>
+				<div><label for="profundidade">Profundidade máx. <span class="ajuda">(0 = sem limite)</span></label><input id="profundidade" type="number" value="0" min="0"></div>
+			</div>
+		</section>
+		<section>
+			<h2>💾 Arquivos</h2>
+			<label for="existentes">Páginas que já foram salvas antes</label>
+			<select id="existentes">
+				<option value="recapturar">Capturar de novo (substitui)</option>
+				<option value="pular">Pular (não captura de novo)</option>
+				<option value="mudou">Atualizar só as que mudaram no site</option>
 			</select>
-			<span>às</span>
-			<input id="hora" type="time" value="03:00" style="width:auto">
-			<button id="agendar" type="button">Agendar</button>
-		</div>
-		<p class="ajuda">Dica: para agendamentos, use "Atualizar só as que mudaram" nas opções avançadas. O Chrome precisa estar aberto no horário.</p>
-		<ul id="agenda"></ul>
-	</section>
-
-	<details>
-		<summary>⚙️ Opções avançadas</summary>
-		<label for="existentes">Páginas que já foram salvas antes</label>
-		<select id="existentes">
-			<option value="recapturar">Capturar de novo (substitui)</option>
-			<option value="pular">Pular (não captura de novo)</option>
-			<option value="mudou">Atualizar só as que mudaram no site</option>
-		</select>
-		<label class="marcar"><input id="arquivos" type="checkbox"> Baixar também os arquivos linkados (PDF, ZIP, DOC, imagens…)</label>
-		<label for="excluir">Não visitar endereços que contenham <span class="ajuda">— um por linha, opcional</span></label>
-		<textarea id="excluir" rows="2" placeholder="Ex.: Category:&#10;/User"></textarea>
-		<label for="prefixo">Só visitar endereços que começam com</label>
-		<input id="prefixo">
-		<div class="grade">
-			<div><label for="max">Máximo de páginas</label><input id="max" type="number" value="2000" min="1"></div>
-			<div><label for="pausa">Pausa entre páginas (ms)</label><input id="pausa" type="number" value="1000" min="0"></div>
-			<div><label for="profundidade">Profundidade máx. <span class="ajuda">(0 = sem limite)</span></label><input id="profundidade" type="number" value="0" min="0"></div>
-		</div>
-	</details>
+			<label class="marcar" style="margin-top:12px"><input id="recursos" type="checkbox" checked> Guardar estilos e imagens repetidos uma vez só (economiza muito espaço)</label>
+			<label class="marcar"><input id="versoes" type="checkbox" checked> 🕰️ Máquina do tempo: guardar a versão anterior quando uma página mudar</label>
+			<label class="marcar"><input id="arquivos" type="checkbox"> Baixar também os arquivos linkados (PDF, ZIP, DOC, imagens…)</label>
+		</section>
+		<section>
+			<h2>🔎 Filtros</h2>
+			<label for="prefixo">Só visitar endereços que começam com</label>
+			<input id="prefixo">
+			<label for="excluir">Não visitar endereços que contenham <span class="ajuda">— um por linha, opcional</span></label>
+			<textarea id="excluir" rows="2" placeholder="Ex.: Category:&#10;/User"></textarea>
+		</section>
+	</div>
 
 	<div class="acoes">
 		<button id="iniciar" class="principal">▶ Iniciar captura</button>

@@ -138,6 +138,7 @@ const ESTILO = `
 	.grade a:hover, .abrir:hover { filter: brightness(1.08); }
 	h2 { font-size: 17px; margin: 24px 0 10px; }
 	.grade b { display: block; font-size: 22px; color: var(--cor); }
+	.mini { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 8px; margin-bottom: 8px; background: var(--borda); }
 	input { width: 100%; padding: 12px 14px; font-size: 15px; border: 1px solid var(--borda); border-radius: 10px; background: var(--cartao); color: var(--texto); margin-bottom: 16px; }
 	ul { list-style: none; padding-left: 18px; margin: 4px 0; } main > .cartao > ul { padding-left: 0; }
 	li { margin: 2px 0; } summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
@@ -161,7 +162,7 @@ export function montarIndice(host, paginas, inicio) {
 	const contar = no => no.paginas.length + Object.values(no.pastas).reduce((t, f) => t + contar(f), 0);
 	const ramo = no => "<ul>" +
 		no.paginas.sort((a, b) => !!a.online - !!b.online || a.titulo.localeCompare(b.titulo)).map(p =>
-			`<li class="p${p.online ? " online" : ""}"${p.texto ? ` data-t="${esc(p.texto.slice(0, 3000))}"` : ""}><a href="${esc(p.href)}">${esc(p.titulo)}</a>${p.online ? " <small>(não capturada, abre online)</small>" : ""}<small class="trecho"></small></li>`).join("") +
+			`<li class="p${p.online ? " online" : ""}"${p.texto ? ` data-t="${esc(p.texto.slice(0, 3000))}"` : ""}><a href="${esc(p.href)}">${esc(p.titulo)}</a>${p.online ? " <small>(não capturada, abre online)</small>" : ""}${(p.versoes || []).length ? ` <small>🕰️ ${p.versoes.map(v => `<a href="${esc(encodeURI(v.arquivo))}">${esc(v.data)}</a>`).join(" · ")}</small>` : ""}<small class="trecho"></small></li>`).join("") +
 		Object.keys(no.pastas).sort().map(k =>
 			`<li><details${no === raiz ? " open" : ""}><summary>📁 ${esc(k)} <small>(${contar(no.pastas[k])})</small></summary>${ramo(no.pastas[k])}</details></li>`).join("") +
 		"</ul>";
@@ -186,7 +187,7 @@ export function montarIndice(host, paginas, inicio) {
 <main>
 <section id="inicio">
 	${home ? `<a class="abrir" href="${esc(hrefHome)}">▶ Abrir o site<small>${esc(limparTitulo(home.titulo))}</small></a>` : ""}
-	${destaques.length ? `<h2>Páginas</h2><div class="grade">${destaques.map(p => `<a href="${esc(p.href)}">${esc(p.titulo)}</a>`).join("")}</div>` : ""}
+	${destaques.length ? `<h2>Páginas</h2><div class="grade">${destaques.map(p => `<a href="${esc(p.href)}">${p.miniatura ? `<img class="mini" src="${esc(encodeURI(p.miniatura))}" alt="" loading="lazy">` : ""}${esc(p.titulo)}</a>`).join("")}</div>` : ""}
 	${destaques.length < nivel.paginas.filter(p => !p.online).length ? `<p><a href="#" data-aba-link="mapa">Ver todas as páginas no esqueleto →</a></p>` : ""}
 	${secoes.length ? `<h2>Seções</h2><div class="grade">${secoes.map(([k, no]) => `<a href="#" data-pasta="${esc(k)}"><b>${contar(no)}</b>📁 ${esc(k)}</a>`).join("")}</div>` : ""}
 </section>
@@ -233,4 +234,70 @@ export function montarSites(sites) {
 <main><div class="grade">
 ${sites.sort((a, b) => a.host.localeCompare(b.host)).map(s => `<a href="${esc(encodeURI(s.host + "/" + INDICE))}"><b>${s.total}</b>${esc(s.host)}</a>`).join("\n")}
 </div></main></body></html>`;
+}
+
+// ── Recursos compartilhados entre páginas ──────────────────────────────────────────────
+// Estilos grandes viram .css e imagens embutidas viram arquivos em _recursos/, com o nome tirado do conteúdo:
+// páginas que usam o mesmo estilo/imagem apontam para um arquivo só. Fontes ficam embutidas (dentro do .css):
+// o Chrome bloqueia fontes carregadas de arquivo local (file://).
+const ESTILO_GRANDE = /<style([^>]*)>([\s\S]{4096,}?)<\/style>/g;
+const IMAGEM_EMBUTIDA = /data:image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml);base64,[A-Za-z0-9+/=]{2048,}/g;
+const EXTENSAO = { png: "png", jpeg: "jpg", jpg: "jpg", gif: "gif", webp: "webp", avif: "avif", bmp: "bmp", "svg+xml": "svg" };
+
+// Conteúdos que valem virar arquivo: { estilos: [css], imagens: [data URI] } (sem repetição).
+export function separarRecursos(html) {
+	const estilos = [...new Set([...html.matchAll(ESTILO_GRANDE)].map(m => m[2]))];
+	const semEstilos = html.replace(ESTILO_GRANDE, "");
+	const imagens = [...new Set(semEstilos.match(IMAGEM_EMBUTIDA) || [])];
+	return { estilos, imagens };
+}
+export const extensaoImagem = uri => EXTENSAO[uri.slice(11, uri.indexOf(";"))] || "bin";
+
+// Troca cada conteúdo pelo endereço do arquivo: caminhos = Map(conteúdo → href relativo à página).
+export function aplicarRecursos(html, caminhos) {
+	return html
+		.replace(ESTILO_GRANDE, (todo, attrs, css) => caminhos.has(css) ? `<link rel="stylesheet"${attrs.replace(/\stype=("[^"]*"|\S+)/, "")} href="${caminhos.get(css)}">` : todo)
+		.replace(IMAGEM_EMBUTIDA, uri => caminhos.get(uri) || uri);
+}
+
+// ── .zip ───────────────────────────────────────────────────────────────────────────────
+const TABELA_CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function crc32(bytes) {
+	let c = 0xffffffff;
+	for (const b of bytes) c = TABELA_CRC[(c ^ b) & 0xff] ^ (c >>> 8);
+	return (c ^ 0xffffffff) >>> 0;
+}
+async function deflate(bytes) {
+	return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+}
+// Arquivo .zip (deflate) a partir de [{ nome, dados: Uint8Array }]. Nomes em UTF-8.
+// shortcut: formato zip clássico (até 4 GB e 65 535 arquivos); usar ZIP64 se algum site passar disso.
+export async function criarZip(arquivos) {
+	const partes = [], central = [];
+	let posicao = 0;
+	// data/hora de agora no formato do zip (MS-DOS)
+	const d = new Date(), dosHora = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+	const dosData = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+	for (const { nome, dados } of arquivos) {
+		const nomeBytes = new TextEncoder().encode(nome);
+		const comprimido = await deflate(dados);
+		const crc = crc32(dados);
+		const cab = new DataView(new ArrayBuffer(30));
+		cab.setUint32(0, 0x04034b50, true); cab.setUint16(4, 20, true); cab.setUint16(6, 0x0800, true); cab.setUint16(8, 8, true);
+		cab.setUint16(10, dosHora, true); cab.setUint16(12, dosData, true);
+		cab.setUint32(14, crc, true); cab.setUint32(18, comprimido.length, true); cab.setUint32(22, dados.length, true); cab.setUint16(26, nomeBytes.length, true);
+		const cen = new DataView(new ArrayBuffer(46));
+		cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true); cen.setUint16(10, 8, true);
+		cen.setUint16(12, dosHora, true); cen.setUint16(14, dosData, true);
+		cen.setUint32(16, crc, true); cen.setUint32(20, comprimido.length, true); cen.setUint32(24, dados.length, true); cen.setUint16(28, nomeBytes.length, true);
+		cen.setUint32(42, posicao, true);
+		partes.push(new Uint8Array(cab.buffer), nomeBytes, comprimido);
+		central.push(new Uint8Array(cen.buffer), nomeBytes);
+		posicao += 30 + nomeBytes.length + comprimido.length;
+	}
+	const tamanhoCentral = central.reduce((t, p) => t + p.length, 0);
+	const fim = new DataView(new ArrayBuffer(22));
+	fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+	fim.setUint32(12, tamanhoCentral, true); fim.setUint32(16, posicao, true);
+	return new Uint8Array(await new Blob([...partes, ...central, new Uint8Array(fim.buffer)]).arrayBuffer());
 }

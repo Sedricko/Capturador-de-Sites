@@ -17,6 +17,14 @@ $("pdf").onclick = () => {
 	aviso("📄 Gerando o PDF… (o ícone mostra ✔ quando ele estiver nos Downloads)");
 };
 
+// Abas do painel (o progresso fica sempre visível embaixo).
+function abrirAba(nome) {
+	document.querySelectorAll("nav.abas button").forEach(b => b.classList.toggle("ativa", b.dataset.aba === nome));
+	document.querySelectorAll("[data-secao]").forEach(s => s.hidden = s.dataset.secao !== nome);
+	if (nome === "sites") mostrarSites();
+}
+document.querySelectorAll("nav.abas button").forEach(b => b.onclick = () => abrirAba(b.dataset.aba));
+
 // Formulário volta com a última configuração usada.
 const { config: ultima } = await chrome.storage.local.get("config");
 if (ultima) {
@@ -26,7 +34,10 @@ if (ultima) {
 	$("existentes").value = ultima.existentes || "recapturar";
 	$("arquivos").checked = !!ultima.arquivos;
 	$("excluir").value = (ultima.excluir || []).join("\n");
-	for (const campo of ["autoPerfil", "sitemap", "retentar", "continuarSozinho"]) $(campo).checked = ultima[campo] !== false;
+	// marcadas por padrão / desmarcadas por padrão
+	for (const campo of ["autoPerfil", "sitemap", "retentar", "continuarSozinho", "recursos", "versoes", "carregarMais"]) $(campo).checked = ultima[campo] !== false;
+	for (const campo of ["livro", "zip", "miniaturas"]) $(campo).checked = !!ultima[campo];
+	$("paralelas").value = String(ultima.paralelas || 2);
 }
 
 // Agendamentos: lista com botão de remover; o disparo é do service worker (chrome.alarms).
@@ -92,8 +103,8 @@ async function liberarPasta() {
 function aviso(msg) {
 	$("log").textContent += msg + "\n";
 }
-async function comando(cmd, trabalho) {
-	let r = await chrome.runtime.sendMessage({ cmd, trabalho });
+async function comando(cmd, trabalho, host) {
+	let r = await chrome.runtime.sendMessage({ cmd, trabalho, host });
 	// uma captura por vez (mesmo de outro site): oferece parar a atual e começar esta
 	if (r?.ocupado && confirm(`${r.erro}\n\nParar essa captura e começar esta agora?\n(A atual termina a página em andamento e é encerrada; não dá para continuá-la depois.)`)) {
 		aviso("Parando a captura atual… a nova começa logo em seguida.");
@@ -108,7 +119,7 @@ async function comando(cmd, trabalho) {
 			chrome.storage.onChanged.addListener(ver);
 			ver();
 		});
-		r = await chrome.runtime.sendMessage({ cmd, trabalho });
+		r = await chrome.runtime.sendMessage({ cmd, trabalho, host });
 	}
 	if (r?.erro) return aviso("⚠ " + r.erro);
 	// mostra na hora, sem esperar o motor (senão o "Fim" da captura anterior ficaria na tela)
@@ -139,6 +150,46 @@ chrome.runtime.onMessage.addListener(msg => {
 	}
 });
 
+// Meus sites: o que já foi capturado (registro do índice), com atalhos.
+async function mostrarSites() {
+	const todos = await chrome.storage.local.get(null);
+	const hosts = Object.keys(todos).filter(k => k.startsWith("paginas:")).map(k => k.slice(8)).sort();
+	if (!hosts.length) return $("sites").replaceChildren(Object.assign(document.createElement("li"), { className: "vazio", textContent: "Nenhum site capturado ainda." }));
+	$("sites").replaceChildren(...hosts.map(host => {
+		const paginas = Object.entries(todos["paginas:" + host]);
+		const ultima = Math.max(0, ...paginas.map(([, p]) => p.salvoEm || 0));
+		const li = document.createElement("li");
+		const info = document.createElement("div");
+		info.innerHTML = "<b></b><small></small>";
+		info.firstChild.textContent = host;
+		info.lastChild.textContent = `${paginas.length} páginas` + (ultima ? ` · última captura em ${new Date(ultima).toLocaleString("pt-BR")}` : "");
+		const acoes = document.createElement("div");
+		acoes.className = "acoes";
+		const botao = (texto, acao) => Object.assign(document.createElement("button"), { textContent: texto, onclick: acao });
+		acoes.append(
+			botao("🔁 Atualizar agora", async () => {
+				// recomeça pela página inicial do site, recapturando só o que mudou
+				const inicio = paginas.find(([, p]) => p.arquivo === todos["inicio:" + host])?.[0] || paginas[0][0];
+				$("url").value = inicio;
+				$("prefixo").value = new URL(inicio).origin + "/";
+				$("seguir").checked = true;
+				$("existentes").value = "mudou";
+				abrirAba("capturar");
+				$("iniciar").click();
+			}),
+			botao("📦 .zip", async () => { if (await liberarPasta()) comando("zip", null, host); }),
+			botao("📕 Livro PDF", async () => { if (await liberarPasta()) comando("livro", null, host); }),
+			botao("🗑️ Esquecer", async () => {
+				if (!confirm(`Tirar ${host} da lista e do índice?\n(Os arquivos na pasta não são apagados.)`)) return;
+				await chrome.storage.local.remove(["paginas:" + host, "inicio:" + host]);
+				mostrarSites();
+			})
+		);
+		li.append(info, acoes);
+		return li;
+	}));
+}
+
 function novoTrabalho() {
 	const seguir = $("seguir").checked;
 	// prefixo vazio no modo site inteiro sairia seguindo links da internet toda: usa o site da 1ª página
@@ -155,7 +206,9 @@ function novoTrabalho() {
 	if (!inicio.length) { aviso("Nenhuma página válida para capturar."); return null; }
 	const existentes = $("existentes").value, arquivos = $("arquivos").checked, profundidade = +$("profundidade").value || 0;
 	const excluir = $("excluir").value.split("\n").map(l => l.trim().toLowerCase()).filter(Boolean);
-	const automacao = { autoPerfil: $("autoPerfil").checked, sitemap: $("sitemap").checked, retentar: $("retentar").checked };
+	const automacao = { autoPerfil: $("autoPerfil").checked, sitemap: $("sitemap").checked, retentar: $("retentar").checked, carregarMais: $("carregarMais").checked,
+		paralelas: +$("paralelas").value, recursos: $("recursos").checked, versoes: $("versoes").checked,
+		livro: $("livro").checked, zip: $("zip").checked, miniaturas: $("miniaturas").checked };
 	const config = { seguir, prefixo, max, pausa, existentes, arquivos, profundidade, excluir, ...automacao };
 	// guardada para a próxima vez e para as capturas pelo botão direito (e lida pela retomada automática)
 	chrome.storage.local.set({ config: { max, pausa, existentes, arquivos, profundidade, excluir, ...automacao, continuarSozinho: $("continuarSozinho").checked } });

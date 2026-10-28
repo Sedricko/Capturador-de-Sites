@@ -15,11 +15,18 @@ chrome.action.onClicked.addListener(async tab => {
 
 // Botão direito na página e no ícone da extensão: capturar ou gerar PDF sem abrir o painel.
 chrome.runtime.onInstalled.addListener(() => {
-	chrome.contextMenus.create({ id: "pagina", title: "Capturar só esta página", contexts: ["page", "action"] });
-	chrome.contextMenus.create({ id: "site", title: "Capturar este site inteiro", contexts: ["page", "action"] });
-	chrome.contextMenus.create({ id: "pdf", title: "Salvar esta página em PDF", contexts: ["page", "action"] });
+	const contexts = ["page", "action"];
+	chrome.contextMenus.removeAll(() => {
+		chrome.contextMenus.create({ id: "site", title: "🌐 Capturar este site inteiro", contexts });
+		chrome.contextMenus.create({ id: "pagina", title: "📄 Capturar só esta página", contexts });
+		chrome.contextMenus.create({ id: "sep1", type: "separator", contexts });
+		chrome.contextMenus.create({ id: "pdf", title: "🖨️ Salvar esta página em PDF", contexts });
+		chrome.contextMenus.create({ id: "sep2", type: "separator", contexts });
+		chrome.contextMenus.create({ id: "painel", title: "⚙️ Abrir o painel", contexts });
+	});
 });
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+	if (info.menuItemId === "painel") chrome.tabs.create({ url: `painel.html?aba=${tab.id}&start=` + encodeURIComponent(tab.url || "") });
 	if (info.menuItemId === "pdf") salvarPdf(tab.id);
 	if (info.menuItemId === "pagina" || info.menuItemId === "site") capturarPeloMenu(tab.url, info.menuItemId === "site");
 });
@@ -95,7 +102,7 @@ function naAba(tabId, nome, args, limiteMs) {
 async function salvarPdf(tabId) {
 	await chrome.action.setBadgeText({ text: "PDF" });
 	try {
-		await naAba(tabId, "prepararPagina", [], 60000); // destrava as imagens "lazy" antes
+		await naAba(tabId, "prepararPagina", [true], 60000); // destrava as imagens "lazy" antes
 		const { title, url } = await chrome.tabs.get(tabId);
 		const alvo = { tabId };
 		await chrome.debugger.attach(alvo, "1.3");
@@ -180,6 +187,17 @@ const RPC = {
 	singlefile: abaId => chrome.scripting.executeScript({ target: { tabId: abaId }, files: ["vendor/single-file.js"] }).then(() => true),
 	// a função na página responde depois com { resultado: id }
 	pagina: (abaId, nome, args) => chrome.scripting.executeScript({ target: { tabId: abaId }, func: PAGINA[nome], args }).then(() => true),
+	// Modo depuração na aba (miniaturas e livro PDF): o Chrome mostra uma faixa enquanto estiver ligado.
+	depurar: (abaId, ligar) => (ligar ? chrome.debugger.attach({ tabId: abaId }, "1.3") : chrome.debugger.detach({ tabId: abaId })).then(() => true, e => {
+		if (/already attached|not attached/i.test(e.message)) return true;
+		throw e;
+	}),
+	miniatura: abaId => chrome.debugger.sendCommand({ tabId: abaId }, "Page.captureScreenshot", {
+		format: "jpeg", quality: 60, clip: { x: 0, y: 0, width: 1280, height: 800, scale: 0.3 }
+	}).then(r => r.data),
+	imprimirPdf: abaId => chrome.debugger.sendCommand({ tabId: abaId }, "Page.printToPDF", {
+		printBackground: true, generateDocumentOutline: true, generateTaggedPDF: true
+	}).then(r => r.data),
 	baixar: (url, filename, conflictAction = "overwrite") => chrome.downloads.download({ url, filename, conflictAction, saveAs: false })
 };
 
@@ -237,7 +255,7 @@ chrome.runtime.onMessage.addListener((msg, _remetente, responder) => {
 	}
 	if (msg.cmd) {
 		// comando do painel (iniciar, parar, continuar) repassado ao motor
-		garantirMotor().then(() => chrome.runtime.sendMessage({ motor: msg.cmd, trabalho: msg.trabalho })).then(responder, e => responder({ erro: e.message }));
+		garantirMotor().then(() => chrome.runtime.sendMessage({ motor: msg.cmd, trabalho: msg.trabalho, host: msg.host })).then(responder, e => responder({ erro: e.message }));
 		return true;
 	}
 });

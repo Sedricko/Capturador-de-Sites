@@ -3,11 +3,34 @@
 
 // Prepara a página sem rolar: o conteúdo adiado (lazy) quem carrega é o SingleFile, com os ganchos dele.
 // Aqui só destravamos as imagens "lazy" mais comuns e devolvemos links, título e texto.
-export function prepararPagina(id) {
+export function prepararPagina(carregarMais, id) {
 	// relógio do service worker: setTimeout aqui fica a 1 por minuto quando a janela está minimizada
 	const pausa = ms => chrome.runtime.sendMessage({ esperar: ms });
 	const carregar = img => img.complete ? null : new Promise(r => { img.addEventListener("load", r); img.addEventListener("error", r); });
 	(async () => {
+		// scroll infinito: pula direto para o fim (sem rolar tela por tela) enquanto a página crescer; depois volta ao topo
+		const pagina = document.scrollingElement || document.documentElement;
+		for (let i = 0; i < 10; i++) {
+			const altura = pagina.scrollHeight;
+			scrollTo(0, altura);
+			await pausa(1500);
+			if (pagina.scrollHeight <= altura) break;
+		}
+		scrollTo(0, 0);
+		// "Carregar mais"/"Ver mais": só botões (nunca links, que mudariam de página); para quando a página parar de crescer
+		let cliques = 0;
+		const TEXTO = /^\s*(carregar|ver|mostrar|exibir|load|show|see|view)\s+(mais|more)\b|mais resultados|more results/i;
+		while (carregarMais && cliques < 10) {
+			const botao = [...document.querySelectorAll("button, [role=button], input[type=button]")]
+				.find(b => !b.disabled && b.offsetParent !== null && TEXTO.test(b.innerText || b.value || ""));
+			if (!botao) break;
+			const antes = document.body.innerHTML.length;
+			botao.click();
+			cliques++;
+			await pausa(1500);
+			if (document.body.innerHTML.length === antes) await pausa(2000);
+			if (document.body.innerHTML.length === antes) break;
+		}
 		// imagens "lazy" (data-src e afins): troca o marcador pela imagem real
 		for (const el of document.querySelectorAll("img, source")) {
 			for (const [de, para] of [["data-src", "src"], ["data-srcset", "srcset"], ["data-lazy-src", "src"], ["data-lazy-srcset", "srcset"], ["data-original", "src"]]) {
@@ -33,7 +56,7 @@ export function prepararPagina(id) {
 			host: location.hostname,
 			marcas: [/wp-content|wp-includes/.test(recursos) && "wp-content", /cdn\.shopify\.com/.test(recursos) && "shopify"].filter(Boolean).join(" ")
 		};
-		return { links, titulo: document.title.trim(), texto, sinais };
+		return { links, titulo: document.title.trim(), texto, sinais, cliques };
 	})().then(valor => chrome.runtime.sendMessage({ resultado: id, valor }), e => chrome.runtime.sendMessage({ resultado: id, erro: e.message }));
 }
 
@@ -61,6 +84,7 @@ export function capturar(seletorAnuncio, id) {
 		loadDeferredContentDispatchScrollEvent: true,
 		loadDeferredContentKeepZoomLevel: false,
 		removeFrames: false, // iframes (vídeos, mapas, widgets) entram no arquivo
+		blockScripts: true, // scripts não funcionam offline e eram ~80% do tamanho das páginas (Fandom)
 		removeHiddenElements: false, // menus suspensos ficam escondidos até passar o mouse
 		removeUnusedStyles: false, // mantém os estilos de :hover dos menus
 		removeUnusedFonts: true,

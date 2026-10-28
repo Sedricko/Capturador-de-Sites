@@ -2,7 +2,7 @@
 	"manifest_version": 3,
 	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkih22/ZKF4AeUuvK1oDBNemfqAPIGUUlcf4gFcHB4jSzZPP3jAxHItLZoR8eNYPdLOeLCOKadheQNaYBXBQ0QbWmYv+KYWO9NHsgRlYJmdVPDS0ycX1VYVhBBv73mrG+TjR3jHxuSUDY53DtlJqb7BIXy0VVISZ3U57undUvYF566pi6BpApdchtat+CVdgwMADBX3+31N8AV1BVYZa8Lg8MJn9o2/xZqutlO3riPjsjL9p33Eb52gS8r941RxVgCJoVK/NZgAlrb1zIgmEzDRXiTFYKO7nqIDlWQZLpya1JEGknsfvCUCuFho72M363jEW1uvXwq1X+qo4sXLoo/QIDAQAB",
 	"name": "Capturador de Sites",
-	"version": "5.1.0",
+	"version": "6.0.0",
 	"description": "Visita as páginas de um site uma a uma e salva o site completo para navegar offline.",
 	"permissions": ["downloads", "scripting", "declarativeNetRequest", "storage", "offscreen", "debugger", "contextMenus", "notifications", "unlimitedStorage", "alarms"],
 	"host_permissions": ["<all_urls>"],

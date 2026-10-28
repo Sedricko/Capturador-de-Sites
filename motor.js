@@ -1,4 +1,4 @@
-import { normalizar, reconhecerSite, lerSitemap, nomeArquivo, caminhoRelativo, montarIndice, montarSites, arquivoLocal, paginaNaoCapturada, INDICE, SITES, ARQUIVOS, MARCA_NAO_CAPTURADA, DOMINIOS_ANUNCIO, SELETOR_ANUNCIO } from "./regras.js";
+import { normalizar, reconhecerSite, lerSitemap, separarRecursos, aplicarRecursos, extensaoImagem, criarZip, nomeArquivo, caminhoRelativo, montarIndice, montarSites, arquivoLocal, paginaNaoCapturada, INDICE, SITES, ARQUIVOS, MARCA_NAO_CAPTURADA, DOMINIOS_ANUNCIO, SELETOR_ANUNCIO } from "./regras.js";
 
 // Motor da captura (documento offscreen). Aqui só existe chrome.runtime: o resto é pedido ao service worker.
 // Sem setTimeout: documentos escondidos têm os timers estrangulados; as esperas usam o relógio do service worker.
@@ -13,6 +13,12 @@ chrome.runtime.onMessage.addListener((msg, _remetente, responder) => {
 		rodar(msg.trabalho);
 		responder("ok");
 	}
+	if (msg.motor === "zip" || msg.motor === "livro") {
+		if (rodando) return responder({ erro: `Já tem uma captura de ${estado.site} rodando.`, ocupado: true });
+		tarefaAvulsa(msg.motor, msg.host);
+		responder("ok");
+	}
+	if (msg.livroPronto) esperandoResultado.get("livro:" + msg.livroPronto)?.(msg);
 	if (msg.motor === "parar") {
 		parar = true;
 		progresso({ status: "Parando após a página atual…" });
@@ -86,32 +92,34 @@ async function rodar(t) {
 	rodando = true;
 	parar = false;
 	pasta = await lerPasta();
-	if (pasta && await pasta.queryPermission({ mode: "readwrite" }) !== "granted") {
-		linhas = ["Sem permissão para gravar na pasta escolhida. Abra o painel e clique em Iniciar/Continuar (o Chrome pede para liberar a pasta)."];
-		await progresso({ rodando: false, status: linhas[0] });
-		await rpc("notificar", "Capturador: falta liberar a pasta", "Abra o painel e clique em Iniciar ou Continuar.");
-		rodando = false;
-		return;
-	}
+	if (!await pastaLiberada()) { rodando = false; return; }
 	const continuando = t.n > 0 || t.capturadas.length > 0;
 	linhas = continuando ? [`↻ Continuando: ${t.n} já salvas, ${t.fila.length} na fila.`] : [];
 	await progresso({ rodando: true, status: "Começando…", site: new URL(t.fila[0] || t.config.prefixo).hostname, feitas: t.n, total: t.n + t.fila.length, eta: null });
-	// configs antigas (antes da 4.1) tinham só "pular"
-	const { seguir, prefixo, max, pausa, excluir = [], profundidade = 0, arquivos = false, autoPerfil = true, sitemap = true, retentar = true } = t.config;
+	// configs antigas (antes da 4.1) tinham só "pular"; as opções novas valem "ligado" quando não vierem
+	const { seguir, prefixo, max, pausa, excluir = [], profundidade = 0, arquivos = false, autoPerfil = true, sitemap = true, retentar = true,
+		paralelas = 2, recursos = true, versoes = true, miniaturas = false, livro = false, zip = false, carregarMais = true } = t.config;
+	const existentes = t.config.existentes || (t.config.pular ? "pular" : "recapturar");
 	const regras = [...excluir]; // cresce com as exclusões do tipo de site reconhecido
 	let perfil = t.perfil || null, sitemapFeito = !!t.sitemapFeito;
 	const tentativas = t.tentativas || {}, aRetentar = t.aRetentar || [];
-	let rodadasDeNovo = t.rodadasDeNovo || 0;
-	const existentes = t.config.existentes || (t.config.pular ? "pular" : "recapturar");
+	let rodadasDeNovo = t.rodadasDeNovo || 0, esperandoNovaRodada = false;
 	const fila = t.fila, vistos = new Set(t.vistos), capturadas = new Map(t.capturadas), prof = t.profundidades || {};
 	const baixados = new Map(); // arquivo linkado → caminho local (nesta captura)
-	let n = t.n, puladas = 0;
+	let n = t.n, puladas = 0, ocupadas = 0; // ocupadas: páginas em andamento agora (várias abas)
 	const tempos = []; // duração de cada página capturada, para a estimativa de tempo
-	if (t.janelaId) await rpc("fecharJanela", t.janelaId, t.abaId); // janela de captura que ficou órfã
+	// janelas de captura que ficaram órfãs (painel/Chrome fechado no meio)
+	for (const j of t.janelas || (t.janelaId ? [{ janelaId: t.janelaId, abaId: t.abaId }] : [])) await rpc("fecharJanela", j.janelaId, j.abaId);
 	await rpc("ganchos", true); // antes de abrir as páginas: os ganchos precisam entrar desde o começo do carregamento
-	let { janelaId, abaId } = await rpc("janela"), reaberturas = 0;
+	const janelas = [];
+	const novaJanela = async () => {
+		const j = await rpc("janela");
+		if (miniaturas) await rpc("depurar", j.abaId, true).catch(e => log("✖ miniaturas — " + e.message));
+		return j;
+	};
+	for (let i = 0; i < Math.max(1, Math.min(4, paralelas)); i++) janelas.push(await novaJanela());
 	// progresso guardado a cada página: fechar o painel ou o Chrome não perde o que já foi feito
-	const guardar = () => rpc("set", { trabalho: { config: { ...t.config, excluir: regras }, fila, vistos: [...vistos], capturadas: [...capturadas], profundidades: prof, n, janelaId, abaId, perfil, sitemapFeito, tentativas, aRetentar, rodadasDeNovo } });
+	const guardar = () => rpc("set", { trabalho: { config: { ...t.config, excluir: regras }, fila, vistos: [...vistos], capturadas: [...capturadas], profundidades: prof, n, janelas, perfil, sitemapFeito, tentativas, aRetentar, rodadasDeNovo } });
 	await guardar();
 	// só entra na fila o que vai ser capturado: fora do prefixo, excluído ou fundo demais continua apontando para o site
 	const seguirLinks = (links, d) => {
@@ -122,88 +130,110 @@ async function rodar(t) {
 		}
 	};
 	const restantes = () => Math.min(fila.length, max - n);
-	try {
-		while (n < max && !parar) {
+
+	async function capturarUma(j, url) {
+		const d = prof[url] || 0;
+		const media = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length / janelas.length : null;
+		await progresso({ status: `Salvas ${n} · fila ${fila.length} · ${url}`, feitas: n, total: n + ocupadas + restantes(), eta: media && media * (ocupadas + restantes()) });
+		if (existentes !== "recapturar" && await jaSalva(url) && (existentes === "pular" || !await mudou(url))) {
+			// já salva: no modo site inteiro só abre para achar os links (sem capturar)
+			let titulo = capturadas.get(url)?.titulo || url;
+			if (seguir) {
+				await abrir(j.abaId, url);
+				const r = await naPagina(j.abaId, "coletarLinks", [], 30000);
+				titulo = r.titulo || titulo;
+				seguirLinks(r.links, d);
+			}
+			capturadas.set(url, { ...capturadas.get(url), arquivo: nomeArquivo(url), titulo });
+			puladas++;
+			await log(`↷ já salva${existentes === "mudou" ? " e sem mudanças" : ""}  ${url}`);
+			return;
+		}
+		const inicio = Date.now();
+		const final = await abrir(j.abaId, url);
+		vistos.add(normalizar(final, prefixo, regras));
+		const { links, titulo, texto, sinais, cliques } = await naPagina(j.abaId, "prepararPagina", [carregarMais], 90000);
+		if (cliques) await log(`  ➕ cliquei ${cliques}× em "carregar mais"  ${url}`);
+		if (autoPerfil && !perfil && sinais) {
+			// reconhece o tipo de site na 1ª página e aplica as regras dele (também ao que já está na fila)
+			const achado = reconhecerSite(sinais);
+			perfil = achado?.nome || "genérico";
+			if (achado) {
+				regras.push(...achado.excluir.filter(r => !regras.includes(r)));
+				for (let i = fila.length - 1; i >= 0; i--) if (!normalizar(fila[i], prefixo, regras)) fila.splice(i, 1);
+				await log(`🧠 Site reconhecido: ${achado.nome} — regras ajustadas sozinhas (não visitar: ${achado.excluir.join(", ")})`);
+			}
+		}
+		seguirLinks(links, d);
+		if (seguir && sitemap && !sitemapFeito) {
+			sitemapFeito = true;
+			const achadas = await lerMapaDoSite(prefixo).catch(() => []);
+			const antes = fila.length;
+			seguirLinks(achadas, 0);
+			if (achadas.length) await log(`🗺️ Mapa do site: ${achadas.length} endereços encontrados, ${fila.length - antes} páginas novas na fila.`);
+		}
+		await rpc("singlefile", j.abaId);
+		const html = await naPagina(j.abaId, "capturar", [SELETOR_ANUNCIO], 3 * 60000);
+		const miniatura = miniaturas ? await salvarMiniatura(j.abaId, url).catch(() => undefined) : capturadas.get(url)?.miniatura;
+		const locais = arquivos ? await baixarArquivos(links, new URL(url).hostname, baixados) : baixados;
+		let pronto = religar(html, url, final, vistos, locais);
+		if (recursos) pronto = await compartilharRecursos(pronto, url);
+		const historico = versoes ? await guardarVersaoAnterior(url, texto) : [];
+		await salvar(nomeArquivo(url), new Blob([pronto], { type: "text/html" }));
+		capturadas.set(url, { arquivo: nomeArquivo(url), titulo: titulo || url, texto, salvoEm: Date.now(), miniatura, versoes: historico });
+		tempos.push(Date.now() - inicio);
+		await log(`✔ ${++n}  ${url}`);
+		await rpc("badge", String(n));
+		// índice já existe desde o começo e vai crescendo (se o Chrome fechar no meio, ele não se perde)
+		if (n === 1 || n % 10 === 0) await gerarIndices(capturadas, seguir ? fila : [], false).catch(e => log("✖ índice — " + e.message));
+	}
+
+	// Cada aba de captura é um "trabalhador" puxando da mesma fila.
+	async function trabalhador(j) {
+		let reaberturas = 0;
+		while (!parar && n + ocupadas < max) {
 			if (!fila.length) {
+				// outras abas ainda podem achar links novos; só termina quando todas pararem
+				if (ocupadas || esperandoNovaRodada) { await rpc("esperar", 500); continue; }
 				// fila acabou: as que falharam ganham nova chance (até 2 rodadas), depois de uma pausa
 				if (!retentar || !aRetentar.length || rodadasDeNovo >= 2) break;
+				esperandoNovaRodada = true;
 				rodadasDeNovo++;
 				await log(`↻ Tentando de novo ${aRetentar.length} página(s) que falharam (rodada ${rodadasDeNovo} de 2)…`);
 				for (let i = 0; i < 3 && !parar; i++) await rpc("esperar", 10000);
 				fila.push(...aRetentar.splice(0));
+				esperandoNovaRodada = false;
 				continue;
 			}
 			const url = fila.shift();
-			const d = prof[url] || 0;
-			const media = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : null;
-			await progresso({ status: `Salvas ${n} · fila ${fila.length} · ${url}`, feitas: n, total: n + 1 + restantes(), eta: media && media * (1 + restantes()) });
+			ocupadas++;
 			try {
-				if (existentes !== "recapturar" && await jaSalva(url) && (existentes === "pular" || !await mudou(url))) {
-					// já salva: no modo site inteiro só abre para achar os links (sem rolar nem capturar)
-					let titulo = capturadas.get(url)?.titulo || url;
-					if (seguir) {
-						await abrir(abaId, url);
-						const r = await naPagina(abaId, "coletarLinks", [], 30000);
-						titulo = r.titulo || titulo;
-						seguirLinks(r.links, d);
-					}
-					capturadas.set(url, { ...capturadas.get(url), arquivo: nomeArquivo(url), titulo });
-					puladas++;
-					await log(`↷ já salva${existentes === "mudou" ? " e sem mudanças" : ""}  ${url}`);
-					await guardar();
-					continue;
-				}
-				const inicio = Date.now();
-				const final = await abrir(abaId, url);
-				vistos.add(normalizar(final, prefixo, regras));
-				const { links, titulo, texto, sinais } = await naPagina(abaId, "prepararPagina", [], 60000);
-				if (autoPerfil && !perfil && sinais) {
-					// reconhece o tipo de site na 1ª página e aplica as regras dele (também ao que já está na fila)
-					const achado = reconhecerSite(sinais);
-					perfil = achado?.nome || "genérico";
-					if (achado) {
-						regras.push(...achado.excluir.filter(r => !regras.includes(r)));
-						for (let i = fila.length - 1; i >= 0; i--) if (!normalizar(fila[i], prefixo, regras)) fila.splice(i, 1);
-						await log(`🧠 Site reconhecido: ${achado.nome} — regras ajustadas sozinhas (não visitar: ${achado.excluir.join(", ")})`);
-					}
-				}
-				seguirLinks(links, d);
-				if (seguir && sitemap && !sitemapFeito) {
-					sitemapFeito = true;
-					const achadas = await lerMapaDoSite(prefixo).catch(() => []);
-					const antes = fila.length;
-					seguirLinks(achadas, 0);
-					if (achadas.length) await log(`🗺️ Mapa do site: ${achadas.length} endereços encontrados, ${fila.length - antes} páginas novas na fila.`);
-				}
-				await rpc("singlefile", abaId);
-				const html = await naPagina(abaId, "capturar", [SELETOR_ANUNCIO], 3 * 60000);
-				const locais = arquivos ? await baixarArquivos(links, new URL(url).hostname, baixados) : baixados;
-				await salvar(nomeArquivo(url), new Blob([religar(html, url, final, vistos, locais)], { type: "text/html" }));
-				capturadas.set(url, { arquivo: nomeArquivo(url), titulo: titulo || url, texto, salvoEm: Date.now() });
-				tempos.push(Date.now() - inicio);
+				await capturarUma(j, url);
 				reaberturas = 0;
-				await log(`✔ ${++n}  ${url}`);
-				await rpc("badge", String(n));
-				// índice já existe desde o começo e vai crescendo (se o Chrome fechar no meio, ele não se perde)
-				if (n === 1 || n % 10 === 0) await gerarIndices(capturadas, seguir ? fila : [], false).catch(e => log("✖ índice — " + e.message));
 			} catch (e) {
 				if (/No tab with id/i.test(e.message) && reaberturas++ < 3) {
 					// a janela de captura foi fechada: abre outra e tenta esta mesma página de novo
-					({ janelaId, abaId } = await rpc("janela"));
+					Object.assign(j, await novaJanela());
 					fila.unshift(url);
-					await log(`↻ A janela de captura foi fechada; abri outra para continuar (não precisa fechá-la, ela fica minimizada).`);
+					await log(`↻ Uma janela de captura foi fechada; abri outra para continuar (não precisa fechá-la, ela fica minimizada).`);
 					continue;
 				}
 				tentativas[url] = (tentativas[url] || 0) + 1;
 				const deNovo = retentar && tentativas[url] <= 2;
 				if (deNovo) aRetentar.push(url);
 				await log(`✖ ${url} — ${e.message}${deNovo ? " (vou tentar de novo no fim)" : ""}`);
+			} finally {
+				ocupadas--;
 			}
 			await guardar();
 			await rpc("esperar", pausa);
 		}
+	}
+
+	try {
+		await Promise.all(janelas.map(trabalhador));
 	} finally {
-		await rpc("fecharJanela", janelaId, abaId).catch(() => {});
+		for (const j of janelas) await rpc("fecharJanela", j.janelaId, j.abaId).catch(() => {});
 		await rpc("ganchos", false).catch(() => {});
 	}
 	await gerarIndices(capturadas, seguir ? fila : []).catch(e => log("✖ índice — " + e.message));
@@ -212,6 +242,11 @@ async function rodar(t) {
 		// terminou de verdade: não há o que continuar. O que ficou na fila ganha uma página "não capturada" local.
 		if (fila.length) await marcarNaoCapturadas(fila).catch(e => log("✖ páginas não capturadas — " + e.message));
 		await rpc("remove", "trabalho");
+		const hosts = [...new Set([...capturadas.keys()].map(u => new URL(u).hostname))];
+		for (const host of hosts) {
+			if (livro) await gerarLivro(host).catch(e => log("✖ livro PDF — " + e.message));
+			if (zip) await exportarZip(host).catch(e => log("✖ .zip — " + e.message));
+		}
 		await rpc("badge", "✔");
 		status = `Fim: ${n} páginas salvas${puladas ? ` (+${puladas} já existiam)` : ""} em ${pasta ? pasta.name : "Downloads/capturas"}. Abra o ${INDICE} na pasta do site. ${fila.length} ficaram na fila.`;
 		const falharam = Object.keys(tentativas).filter(u => !capturadas.has(u)).length;
@@ -225,6 +260,129 @@ async function rodar(t) {
 	linhas.push(status);
 	rodando = false;
 	await progresso({ rodando: false, status, feitas: n, total: n + (fila.length && n < max ? fila.length : 0), eta: null });
+}
+
+// A pasta escolhida precisa estar liberada (o Chrome pede um clique depois de reiniciar).
+async function pastaLiberada() {
+	if (!pasta || await pasta.queryPermission({ mode: "readwrite" }) === "granted") return true;
+	linhas = ["Sem permissão para gravar na pasta escolhida. Abra o painel e clique em Iniciar/Continuar (o Chrome pede para liberar a pasta)."];
+	await progresso({ rodando: false, status: linhas[0] });
+	await rpc("notificar", "Capturador: falta liberar a pasta", "Abra o painel e clique em Iniciar ou Continuar.");
+	return false;
+}
+
+// Estilos grandes e imagens embutidas viram arquivos em _recursos/, um por conteúdo (compartilhado entre páginas).
+const gravados = new Set();
+async function compartilharRecursos(html, url) {
+	const host = new URL(url).hostname, atual = nomeArquivo(url);
+	const { estilos, imagens } = separarRecursos(html);
+	const caminhos = new Map();
+	const gravar = async (bytes, extensao) => {
+		const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].slice(0, 10).map(b => b.toString(16).padStart(2, "0")).join("");
+		const caminho = `capturas/${host}/_recursos/${hash}.${extensao}`;
+		if (!gravados.has(caminho) && !await existe(caminho)) await salvar(caminho, new Blob([bytes]));
+		gravados.add(caminho);
+		return caminhoRelativo(atual, caminho);
+	};
+	for (const css of estilos) caminhos.set(css, await gravar(new TextEncoder().encode(css), "css"));
+	for (const uri of imagens) caminhos.set(uri, await gravar(Uint8Array.from(atob(uri.slice(uri.indexOf(",") + 1)), c => c.charCodeAt(0)), extensaoImagem(uri)));
+	return aplicarRecursos(html, caminhos);
+}
+
+// Máquina do tempo: se o texto da página mudou desde a captura anterior, a versão antiga fica ao lado,
+// como <nome>.versao-AAAA-MM-DD_HH-MM.html (mesma pasta: os links e recursos dela continuam funcionando).
+async function guardarVersaoAnterior(url, textoNovo) {
+	const chave = "paginas:" + new URL(url).hostname;
+	const antes = ((await rpc("get", chave))[chave] || {})[url];
+	const historico = antes?.versoes || [];
+	if (!pasta || !antes?.texto || antes.texto === textoNovo || !await existe(nomeArquivo(url))) return historico;
+	const quando = new Date(antes.salvoEm || Date.now());
+	const carimbo = quando.toISOString().slice(0, 16).replace("T", "_").replace(":", "-");
+	const caminho = nomeArquivo(url).replace(/\.html$/, `.versao-${carimbo}.html`);
+	await salvar(caminho, await lerArquivo(nomeArquivo(url)));
+	await log(`  🕰️ a página mudou: versão anterior guardada (${quando.toLocaleString("pt-BR")})`);
+	return [...historico, { data: quando.toLocaleString("pt-BR").slice(0, 17), arquivo: caminho.split("/").slice(2).join("/") }];
+}
+
+// Miniatura da página (para os cartões da página inicial offline), pelo modo depuração da aba.
+async function salvarMiniatura(abaId, url) {
+	let dados = null;
+	const pedido = rpc("miniatura", abaId).then(d => { dados = d; });
+	// a captura de tela pode não responder com a janela minimizada: espera no máximo 10 s
+	for (let i = 0; i < 20 && dados === null; i++) await Promise.race([pedido, rpc("esperar", 500)]);
+	if (!dados) throw new Error("sem miniatura");
+	const caminho = nomeArquivo(url).replace(/^capturas\/([^/]+)\//, "capturas/$1/_miniaturas/").replace(/\.html$/, ".jpg");
+	await salvar(caminho, new Blob([Uint8Array.from(atob(dados), c => c.charCodeAt(0))], { type: "image/jpeg" }));
+	return caminho.split("/").slice(2).join("/");
+}
+
+// Livro PDF do site: livro.html monta as páginas salvas; o Chrome imprime tudo num PDF só (com marcadores).
+async function gerarLivro(host) {
+	if (!pasta) return log("✖ livro PDF — precisa de uma pasta escolhida no painel.");
+	await log(`📕 Montando o livro PDF de ${host}…`);
+	const { janelaId, abaId } = await rpc("janela");
+	try {
+		let pronto = null;
+		esperandoResultado.set("livro:" + host, m => { pronto = m; });
+		await rpc("navegar", abaId, chrome.runtime.getURL(`livro.html?host=${encodeURIComponent(host)}`));
+		for (const inicio = Date.now(); !pronto && Date.now() - inicio < 10 * 60000;) await rpc("esperar", 1000);
+		esperandoResultado.delete("livro:" + host);
+		if (!pronto) throw new Error("o livro não ficou pronto em 10 min");
+		if (pronto.erro) throw new Error(pronto.erro);
+		await rpc("depurar", abaId, true);
+		const pdf = await rpc("imprimirPdf", abaId);
+		await salvar(`capturas/${host}/livro-${host}.pdf`, new Blob([Uint8Array.from(atob(pdf), c => c.charCodeAt(0))], { type: "application/pdf" }));
+		await log(`📕 Livro PDF pronto: ${host}/livro-${host}.pdf (${pronto.paginas} páginas do site)`);
+	} finally {
+		await rpc("depurar", abaId, false).catch(() => {});
+		await rpc("fecharJanela", janelaId, abaId).catch(() => {});
+	}
+}
+
+// .zip do site inteiro, na pasta escolhida (ao lado da pasta do site).
+// shortcut: monta o zip na memória; sites de vários GB podem não caber — aí gerar por partes.
+async function exportarZip(host) {
+	if (!pasta) return log("✖ .zip — precisa de uma pasta escolhida no painel.");
+	await log(`📦 Gerando ${host}.zip…`);
+	const arquivos = [];
+	const andar = async (dir, prefixo) => {
+		for await (const [nome, h] of dir.entries()) {
+			if (h.kind === "directory") await andar(h, `${prefixo}${nome}/`);
+			else arquivos.push({ nome: prefixo + nome, dados: new Uint8Array(await (await h.getFile()).arrayBuffer()) });
+		}
+	};
+	await andar(await pasta.getDirectoryHandle(host), `${host}/`);
+	await salvar(`capturas/${host}.zip`, new Blob([await criarZip(arquivos)], { type: "application/zip" }));
+	await log(`📦 ${host}.zip pronto na pasta ${pasta.name} (${arquivos.length} arquivos).`);
+}
+
+// Tarefas avulsas pedidas pelo painel ("Meus sites"): livro PDF e .zip de um site já capturado.
+async function tarefaAvulsa(nome, host) {
+	rodando = true;
+	pasta = await lerPasta();
+	try {
+		if (!await pastaLiberada()) return;
+		linhas = [];
+		await progresso({ rodando: true, site: host, status: nome === "livro" ? "Montando o livro PDF…" : "Gerando o .zip…", total: 0 });
+		await (nome === "livro" ? gerarLivro(host) : exportarZip(host));
+		linhas.push("Pronto.");
+		await rpc("notificar", `Capturador: ${nome === "livro" ? "livro PDF" : ".zip"} pronto ✔`, host);
+	} catch (e) {
+		await log(`✖ ${e.message}`);
+	} finally {
+		rodando = false;
+		await progresso({ rodando: false, status: linhas.at(-2) || linhas.at(-1) || "" });
+	}
+}
+
+async function existe(caminho) {
+	return !!pasta && !!await lerArquivo(caminho).catch(() => null);
+}
+async function lerArquivo(caminho) {
+	const partes = caminho.split("/").slice(1);
+	let dir = pasta;
+	for (const nome of partes.slice(0, -1)) dir = await dir.getDirectoryHandle(nome);
+	return (await dir.getFileHandle(partes.at(-1))).getFile();
 }
 
 // Lê o mapa do site (robots.txt → Sitemap:, /sitemap.xml, /sitemap_index.xml), seguindo sitemaps aninhados.
